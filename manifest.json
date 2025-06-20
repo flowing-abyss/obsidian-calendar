@@ -1,11 +1,11 @@
 {
-	"id": "sample-plugin",
-	"name": "Sample Plugin",
+	"id": "task-calendar",
+	"name": "Tasks Calendar",
 	"version": "1.0.0",
 	"minAppVersion": "0.15.0",
-	"description": "Demonstrates some of the capabilities of the Obsidian API.",
-	"author": "Obsidian",
-	"authorUrl": "https://obsidian.md",
-	"fundingUrl": "https://obsidian.md/pricing",
+	"description": "A flexible tasks calendar",
+	"author": "flowing-abyss",
+	"authorUrl": "https://github.com/flowing-abyss/obsidian-calendar",
+	"fundingUrl": "https://www.donationalerts.com/r/flowing_abyss",
 	"isDesktopOnly": false
 }
