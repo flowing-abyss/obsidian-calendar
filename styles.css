@@ -1088,7 +1088,7 @@ body.is-mobile .tasksCalendar .statisticPopup li {
 	position: relative;
 }
 
-/* Показывать стандартный tooltip через title */
+/* Show standard tooltip via title */
 .tasksCalendar .statisticPopup li[title]:hover:after,
 .tasksCalendar .statisticPopup li[title]:active:after {
 	content: attr(title);

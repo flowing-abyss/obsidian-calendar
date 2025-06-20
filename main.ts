@@ -2,17 +2,17 @@ import { Plugin } from "obsidian";
 
 export default class CalendarPlugin extends Plugin {
 	async onload() {
-		// Экспортируем функцию глобально для вызова из dataviewjs
+		// Export the function globally for calling from dataviewjs
 		(window as any).renderCalendar = renderCalendar;
 	}
 
 	onunload() {
-		// Удаляем глобальную функцию при выгрузке плагина
+		// Remove the global function when the plugin is unloaded
 		delete (window as any).renderCalendar;
 	}
 }
 
-// Вспомогательные функции
+// Helper functions
 function capitalize(str: string): string {
 	return str[0].toUpperCase() + str.slice(1);
 }
@@ -22,10 +22,8 @@ function getFilename(path: string): string {
 	return match ? match[1] : path;
 }
 
-// TODO: перенести momentToRegex, getMeta, и другие функции
-
 export async function renderCalendar(dv: any, params: any) {
-	// Деструктуризация параметров
+	// Destructuring parameters
 	let {
 		pages,
 		view,
@@ -39,7 +37,7 @@ export async function renderCalendar(dv: any, params: any) {
 		options,
 	} = params;
 
-	// Проверки параметров
+	// Parameter checks
 	if (!pages && pages !== "") {
 		dv.span(
 			'> [!ERROR] Missing pages parameter\n> \n> Please set the pages parameter like\n> \n> `pages: ""`'
@@ -91,19 +89,19 @@ export async function renderCalendar(dv: any, params: any) {
 		}
 	}
 
-	// Получение задач
+	// Getting tasks
 	let tasks: any[] = [];
 	if (pages === "") {
 		tasks = dv.pages().file.tasks;
 	} else if (typeof pages === "string" && pages.startsWith("dv.pages")) {
-		tasks = eval(pages); // ОПАСНО: eval, но сохраняем совместимость
+		tasks = eval(pages); // DANGEROUS: eval, but kept for compatibility
 	} else if (Array.isArray(pages) && pages.every((p: any) => p.task)) {
 		tasks = pages;
 	} else {
 		tasks = dv.pages(pages).file.tasks;
 	}
 
-	// --- Шаблоны и иконки ---
+	// --- Templates and icons ---
 	const arrowLeftIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>`;
 	const arrowRightIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>`;
 	const filterIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>`;
@@ -128,14 +126,14 @@ export async function renderCalendar(dv: any, params: any) {
 	const taskStartIcon = "🛫";
 	const taskDailyNoteIcon = "📄";
 
-	// Временные переменные для дат
+	// Temporary variables for dates
 	const tToday = window.moment().format("YYYY-MM-DD");
 	const tMonth = window.moment().format("M");
 	const tDay = window.moment().format("d");
 	const tYear = window.moment().format("YYYY");
 	const tid = new Date().getTime();
 
-	// Корневой элемент календаря
+	// Root element of the calendar
 	const rootNode = dv.el("div", "", {
 		cls: "tasksCalendar " + options,
 		attr: {
@@ -150,12 +148,12 @@ export async function renderCalendar(dv: any, params: any) {
 		rootNode.append(style);
 	}
 
-	// --- Вспомогательные функции и переменные для задач ---
+	// --- Helper functions and variables for tasks ---
 	function getMeta(tasks: any[]) {
 		for (let i = 0; i < tasks.length; i++) {
 			let taskText = tasks[i].text;
 			let taskFile = getFilename(tasks[i].path);
-			// dailyNoteMatch и dailyTaskMatch не используются для вычислений, можно упростить
+			// dailyNoteMatch and dailyTaskMatch are not used for calculations, can be simplified
 			let dailyNoteMatch = taskFile.match(
 				new RegExp(momentToRegex(dailyNoteFormat))
 			);
@@ -442,7 +440,7 @@ export async function renderCalendar(dv: any, params: any) {
 		return cellContent;
 	}
 
-	// --- Рендер календаря ---
+	// --- Calendar rendering ---
 	function removeExistingView() {
 		const grid = rootNode.querySelector(".grid");
 		if (grid) grid.remove();
@@ -457,7 +455,7 @@ export async function renderCalendar(dv: any, params: any) {
 		recurrenceCounter: number,
 		dailyNoteCounter: number
 	) {
-		// Всегда полностью перезаписываем innerHTML, чтобы не терялись подписи и иконки
+		// Always fully overwrite innerHTML so that labels and icons are not lost
 		const set = (
 			id: string,
 			icon: string,
@@ -477,7 +475,7 @@ export async function renderCalendar(dv: any, params: any) {
 		set("statisticRecurrence", "🔁", "Recurring", recurrenceCounter);
 		set("statisticDailyNote", "📄", "Daily", dailyNoteCounter);
 
-		// Добавить иконку к кнопке статистики, если svg не используется
+		// Add an icon to the statistics button if svg is not used
 		const statBtn = rootNode.querySelector("button.statistic");
 		if (statBtn && !statBtn.innerHTML.trim()) {
 			statBtn.innerHTML = "📊";
@@ -512,7 +510,7 @@ export async function renderCalendar(dv: any, params: any) {
 						el.classList.remove("active")
 					);
 					rootNode.classList.remove("focus" + capitalize(group));
-					// Снять подсветку с задач
+					// Remove highlighting from tasks
 					rootNode.querySelectorAll(".task").forEach((task: any) => {
 						task.classList.remove("highlighted");
 					});
@@ -527,7 +525,7 @@ export async function renderCalendar(dv: any, params: any) {
 						)
 					);
 					rootNode.classList.add("focus" + capitalize(group));
-					// Подсветка только для просроченных задач
+					// Highlight only for overdue tasks
 					if (group === "overdue") {
 						const today = window.moment().format("YYYY-MM-DD");
 						rootNode
@@ -550,7 +548,7 @@ export async function renderCalendar(dv: any, params: any) {
 	}
 
 	function setStatisticPopUp() {
-		// Удаляем старый popup, если есть
+		// Remove old popup if it exists
 		const oldPopup = rootNode.querySelector(".statisticPopup");
 		if (oldPopup) oldPopup.remove();
 
@@ -569,7 +567,7 @@ export async function renderCalendar(dv: any, params: any) {
 		statistic +=
 			"<li id='statisticDailyNote' data-group='dailyNote'>📄 <span class='stat-label'>Daily</span></li>";
 
-		// Используем обычный DOM, а не dv.el
+		// Use regular DOM, not dv.el
 		const ul = document.createElement("ul");
 		ul.className = "statisticPopup";
 		ul.innerHTML = statistic;
@@ -624,13 +622,13 @@ export async function renderCalendar(dv: any, params: any) {
 	}
 
 	function setButtons() {
-		// Удалить старый контейнер кнопок, если есть
+		// Remove old button container if it exists
 		const oldButtons = rootNode.querySelector(".buttons");
 		if (oldButtons) oldButtons.remove();
 		const buttonsDiv = document.createElement("div");
 		buttonsDiv.className = "buttons";
 
-		// Кнопки и их параметры
+		// Buttons and their parameters
 		const btns = [
 			{ cls: "filter", icon: filterIcon, title: "" },
 			{ cls: "listView", icon: listIcon, title: "List" },
@@ -645,16 +643,16 @@ export async function renderCalendar(dv: any, params: any) {
 				title: "Highlight overdue tasks",
 				onClick: function (btn: HTMLButtonElement) {
 					const isActive = btn.classList.contains("active");
-					// Снять подсветку со всех задач
+					// Remove highlighting from tasks
 					rootNode.querySelectorAll(".task").forEach((task: any) => {
 						task.classList.remove("highlighted");
 					});
-					// Снять active с statistic
+					// Remove active from statistic
 					rootNode
 						.querySelectorAll("button.statistic")
 						.forEach((b: any) => b.classList.remove("active"));
 					if (!isActive) {
-						// Подсветить просроченные задачи
+						// Highlight overdue tasks
 						const today = window.moment().format("YYYY-MM-DD");
 						rootNode
 							.querySelectorAll(".task")
@@ -682,14 +680,14 @@ export async function renderCalendar(dv: any, params: any) {
 				onClick: function (btn: HTMLButtonElement) {
 					const popup = rootNode.querySelector(".statisticPopup");
 					const isActive = btn.classList.contains("active");
-					// Снять active с overdueHighlighter
+					// Remove active from overdueHighlighter
 					rootNode
 						.querySelectorAll("button.overdueHighlighter")
 						.forEach((b: any) => b.classList.remove("active"));
 					if (!isActive) {
 						btn.classList.add("active");
 						popup?.classList.add("active");
-						// Слушатель для клика вне popup — снять active
+						// Listener for click outside popup — remove active
 						const closePopup = (e: MouseEvent) => {
 							if (
 								popup &&
@@ -852,7 +850,7 @@ export async function renderCalendar(dv: any, params: any) {
 		});
 	}
 
-	// --- Основные функции рендера ---
+	// --- Main render functions ---
 	let selectedDate: any;
 	if (startPosition) {
 		selectedDate = window.moment(startPosition, "YYYY-MM").date(1);
@@ -1269,7 +1267,7 @@ export async function renderCalendar(dv: any, params: any) {
 		}
 	}
 
-	// --- Запуск рендера по view ---
+	// --- Start rendering by view ---
 	if (view === "month") {
 		getMonth(tasks, selectedDate);
 	} else if (view === "week") {
