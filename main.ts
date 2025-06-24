@@ -137,7 +137,17 @@ export async function renderCalendar(dv: any, params: any) {
 	if (pages === "") {
 		tasks = dv.pages().file.tasks;
 	} else if (typeof pages === "string" && pages.startsWith("dv.pages")) {
-		tasks = eval(pages); // DANGEROUS: eval, but kept for compatibility
+		// Example: pages = 'dv.pages("#tag")'
+		// Remove quotes if present
+		const match = pages.match(/^dv\.pages\((.*)\)$/);
+		if (match) {
+			const arg = match[1].trim();
+			// Remove quotes if present
+			const argValue = arg.replace(/^['\"`](.*)['\"`]$/, "$1");
+			tasks = dv.pages(argValue).file.tasks;
+		} else {
+			tasks = [];
+		}
 	} else if (Array.isArray(pages) && pages.every((p: any) => p.task)) {
 		tasks = pages;
 	} else {
@@ -168,6 +178,19 @@ export async function renderCalendar(dv: any, params: any) {
 	const taskCancelledIcon = "🚫";
 	const taskStartIcon = "🛫";
 	const taskDailyNoteIcon = "📄";
+
+	// --- Tasks icons dictionary ---
+	const taskIcons: Record<string, string> = {
+		done: taskDoneIcon,
+		due: taskDueIcon,
+		scheduled: taskScheduledIcon,
+		recurrence: taskRecurrenceIcon,
+		overdue: taskOverdueIcon,
+		process: taskProcessIcon,
+		cancelled: taskCancelledIcon,
+		start: taskStartIcon,
+		dailyNote: taskDailyNoteIcon,
+	};
 
 	// Root element of the calendar
 	const rootNode = dv.el("div", "", {
@@ -380,7 +403,7 @@ export async function renderCalendar(dv: any, params: any) {
 		const noteIcon = getMetaFromNote(dv, obj, "icon");
 		let taskText = obj.text.replace("'", "&apos;");
 		let taskPath = obj.link.path.replace("'", "&apos;");
-		const taskIcon = eval("task" + capitalize(cls) + "Icon");
+		const taskIcon = taskIcons[cls] || "";
 		const relative = obj.due ? window.moment(obj.due).fromNow() : "";
 		let noteFilename = getFilename(taskPath);
 		if (noteIcon) {
