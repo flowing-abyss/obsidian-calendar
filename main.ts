@@ -22,6 +22,41 @@ function getFilename(path: string): string {
 	return match ? match[1] : path;
 }
 
+function getMetaFromNote(dv: any, task: any, metaName: string): string {
+	const meta = dv.pages(`"${task.link.path}"`)[metaName]?.[0];
+	return meta || "";
+}
+
+function momentToRegex(momentFormat: string): string {
+	let fmt = momentFormat;
+	fmt = fmt.split(".").join("\\.");
+	fmt = fmt.split(",").join("\\,");
+	fmt = fmt.split("-").join("\\-");
+	fmt = fmt.split(":").join("\\:");
+	fmt = fmt.split(" ").join("\\s");
+
+	fmt = fmt.replace("dddd", "\\w{1,}");
+	fmt = fmt.replace("ddd", "\\w{1,3}");
+	fmt = fmt.replace("dd", "\\w{2}");
+	fmt = fmt.replace("d", "\\d{1}");
+
+	fmt = fmt.replace("YYYY", "\\d{4}");
+	fmt = fmt.replace("YY", "\\d{2}");
+
+	fmt = fmt.replace("MMMM", "\\w{1,}");
+	fmt = fmt.replace("MMM", "\\w{3}");
+	fmt = fmt.replace("MM", "\\d{2}");
+
+	fmt = fmt.replace("DDDD", "\\d{3}");
+	fmt = fmt.replace("DDD", "\\d{1,3}");
+	fmt = fmt.replace("DD", "\\d{2}");
+	fmt = fmt.replace("D", "\\d{1,2}");
+
+	fmt = fmt.replace("ww", "\\d{1,2}");
+
+	return `^(${fmt})$`;
+}
+
 export async function renderCalendar(dv: any, params: any) {
 	// Destructuring parameters
 	let {
@@ -36,6 +71,14 @@ export async function renderCalendar(dv: any, params: any) {
 		css,
 		options,
 	} = params;
+
+	// Cache static moment values for this render
+	const now = window.moment();
+	const tToday = now.format("YYYY-MM-DD");
+	const tMonth = now.format("M");
+	const tDay = now.format("d");
+	const tYear = now.format("YYYY");
+	const tid = new Date().getTime();
 
 	// Parameter checks
 	if (!pages && pages !== "") {
@@ -125,13 +168,6 @@ export async function renderCalendar(dv: any, params: any) {
 	const taskCancelledIcon = "🚫";
 	const taskStartIcon = "🛫";
 	const taskDailyNoteIcon = "📄";
-
-	// Temporary variables for dates
-	const tToday = window.moment().format("YYYY-MM-DD");
-	const tMonth = window.moment().format("M");
-	const tDay = window.moment().format("d");
-	const tYear = window.moment().format("YYYY");
-	const tid = new Date().getTime();
 
 	// Root element of the calendar
 	const rootNode = dv.el("div", "", {
@@ -1277,11 +1313,6 @@ export async function renderCalendar(dv: any, params: any) {
 	}
 }
 
-function getMetaFromNote(dv: any, task: any, metaName: string): string {
-	const meta = dv.pages(`"${task.link.path}"`)[metaName]?.[0];
-	return meta || "";
-}
-
 function transColor(color: string, percent: number): string {
 	const num = parseInt(color.replace("#", ""), 16);
 	const amt = Math.round(2.55 * percent);
@@ -1299,34 +1330,4 @@ function transColor(color: string, percent: number): string {
 			.toString(16)
 			.slice(1)
 	);
-}
-
-function momentToRegex(momentFormat: string): string {
-	let fmt = momentFormat;
-	fmt = fmt.split(".").join("\\.");
-	fmt = fmt.split(",").join("\\,");
-	fmt = fmt.split("-").join("\\-");
-	fmt = fmt.split(":").join("\\:");
-	fmt = fmt.split(" ").join("\\s");
-
-	fmt = fmt.replace("dddd", "\\w{1,}");
-	fmt = fmt.replace("ddd", "\\w{1,3}");
-	fmt = fmt.replace("dd", "\\w{2}");
-	fmt = fmt.replace("d", "\\d{1}");
-
-	fmt = fmt.replace("YYYY", "\\d{4}");
-	fmt = fmt.replace("YY", "\\d{2}");
-
-	fmt = fmt.replace("MMMM", "\\w{1,}");
-	fmt = fmt.replace("MMM", "\\w{3}");
-	fmt = fmt.replace("MM", "\\d{2}");
-
-	fmt = fmt.replace("DDDD", "\\d{3}");
-	fmt = fmt.replace("DDD", "\\d{1,3}");
-	fmt = fmt.replace("DD", "\\d{2}");
-	fmt = fmt.replace("D", "\\d{1,2}");
-
-	fmt = fmt.replace("ww", "\\d{1,2}");
-
-	return `^(${fmt})$`;
 }
