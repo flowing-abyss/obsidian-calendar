@@ -167,7 +167,7 @@ export async function renderCalendar(dv: any, params: any) {
 	const cellTemplate =
 		"<div class='cell {{class}}' data-weekday='{{weekday}}'><a class='internal-link cellName' href='{{dailyNote}}'>{{cellName}}</a><div class='cellContent'>{{cellContent}}</div></div>";
 	const taskTemplate =
-		"<a class='internal-link' href='{{taskPath}}'><div class='task {{class}}' style='{{style}}' title='{{title}}'><div class='inner'><div class='note'>{{note}}</div><div class='icon'>{{icon}}</div><div class='description' data-relative='{{relative}}'>{{taskContent}}</div></div></div></a>";
+		"<div class='task {{class}}' style='{{style}}' title='{{title}}'><div class='inner'><input type='checkbox' class='calendar-task-checkbox' data-task-path='{{filePath}}' data-task-line='{{taskLine}}' {{checked}}><a class='internal-link' href='{{taskPath}}'><div class='note'>{{note}}</div><div class='icon'>{{icon}}</div><div class='description' data-relative='{{relative}}'>{{taskContent}}</div></a></div></div>";
 
 	const taskDoneIcon = "✅";
 	const taskDueIcon = "📅";
@@ -413,7 +413,12 @@ export async function renderCalendar(dv: any, params: any) {
 			cls += " noNoteIcon";
 		}
 		const taskSubpath = obj.header?.subpath;
-		const taskLine = taskSubpath ? taskPath + "#" + taskSubpath : taskPath;
+		const checked = obj.completed || obj.checked ? "checked" : "";
+		// Use the file path and line number for precise task identification
+		const filePathLocal =
+			obj.path || (obj.file && obj.file.path) || obj.link.path || "";
+		const filePathNoExtLocal = filePathLocal.replace(/\.md$/, "");
+		const taskLineLocal = typeof obj.line === "number" ? obj.line : 0;
 		let style = "";
 		if (noteColor && textColor) {
 			style = `--task-background:${noteColor}33;--task-color:${noteColor};--dark-task-text-color:${textColor};--light-task-text-color:${textColor}`;
@@ -436,8 +441,10 @@ export async function renderCalendar(dv: any, params: any) {
 		let newTask = taskTemplate
 			.replace("{{taskContent}}", taskText)
 			.replace("{{class}}", cls)
-			.replace("{{taskPath}}", taskLine)
-			.replace("{{due}}", "done")
+			.replace("{{filePath}}", filePathLocal)
+			.replace("{{taskPath}}", filePathNoExtLocal)
+			.replace("{{taskLine}}", taskLineLocal)
+			.replace("{{checked}}", checked)
 			.split("{{style}}")
 			.join(style)
 			.replace("{{title}}", taskText)
@@ -1334,6 +1341,57 @@ export async function renderCalendar(dv: any, params: any) {
 	} else if (view === "list") {
 		getList(tasks, selectedDate);
 	}
+
+	// After rendering, attach event listeners to checkboxes
+	setTimeout(() => {
+		rootNode
+			.querySelectorAll(".calendar-task-checkbox")
+			.forEach((checkbox: HTMLInputElement) => {
+				checkbox.addEventListener("change", async (e: Event) => {
+					const cb = e.target as HTMLInputElement;
+					const filePath = cb.getAttribute("data-task-path");
+					const lineNum = parseInt(
+						cb.getAttribute("data-task-line") || "0",
+						10
+					);
+					if (!filePath || isNaN(lineNum)) return;
+					// Get the file from the vault
+					const file = dv.app.vault.getAbstractFileByPath(filePath);
+					// Check for file existence and required properties
+					if (!file || !file.path || !file.stat) return;
+					// Read file content
+					const content = await dv.app.vault.read(file);
+					const lines = content.split("\n");
+					// Update the checkbox state at the correct line
+					if (!lines[lineNum]) return;
+					// Get today's date in YYYY-MM-DD format using moment.js
+					const today = window.moment().format("YYYY-MM-DD");
+					if (cb.checked) {
+						// If checked, ensure '✅ YYYY-MM-DD' is at the end (if not already)
+						if (!/✅ \d{4}-\d{2}-\d{2}$/.test(lines[lineNum])) {
+							lines[lineNum] = lines[lineNum].replace(
+								/\s*✅ \d{4}-\d{2}-\d{2}$/,
+								""
+							);
+							lines[lineNum] += ` ✅ ${today}`;
+						}
+					} else {
+						// If unchecked, remove any '✅ YYYY-MM-DD' at the end
+						lines[lineNum] = lines[lineNum].replace(
+							/\s*✅ \d{4}-\d{2}-\d{2}$/,
+							""
+						);
+					}
+					// Also update the checkbox state at the start
+					lines[lineNum] = lines[lineNum].replace(
+						/^- \[[ xX]\]/,
+						cb.checked ? "- [x]" : "- [ ]"
+					);
+					// Write the updated content back to the file
+					await dv.app.vault.modify(file, lines.join("\n"));
+				});
+			});
+	}, 0);
 }
 
 function transColor(color: string, percent: number): string {
