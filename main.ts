@@ -288,26 +288,28 @@ export async function renderCalendar(dv: any, params: any) {
 
 	function getTasksForDate(tasks: any[], date: string) {
 		const today = window.moment().format("YYYY-MM-DD");
-		const done = tasks
+		// Completed tasks: show by due date, not by completion date
+		const allDone = tasks
 			.filter(
 				(t) =>
 					t.completed &&
 					t.checked &&
-					t.completion &&
-					window.moment(t.completion.toString()).isSame(date)
-			)
-			.sort((a, b) => a.completion.localeCompare(b.completion));
-		const doneWithoutCompletionDate = tasks
-			.filter(
-				(t) =>
-					t.completed &&
-					t.checked &&
-					!t.completion &&
 					t.due &&
 					window.moment(t.due.toString()).isSame(date)
 			)
 			.sort((a, b) => a.due.localeCompare(b.due));
-		const allDone = done.concat(doneWithoutCompletionDate);
+		// Completed tasks without due date (fallback to completion date, but rarely used)
+		const allDoneNoDue = tasks
+			.filter(
+				(t) =>
+					t.completed &&
+					t.checked &&
+					!t.due &&
+					t.completion &&
+					window.moment(t.completion.toString()).isSame(date)
+			)
+			.sort((a, b) => a.completion.localeCompare(b.completion));
+		// Other groupings remain the same
 		const due = tasks
 			.filter(
 				(t) =>
@@ -383,7 +385,7 @@ export async function renderCalendar(dv: any, params: any) {
 			)
 			.sort((a, b) => a.dailyNote.localeCompare(b.dailyNote));
 		return {
-			allDone,
+			allDone: allDone.concat(allDoneNoDue),
 			due,
 			recurrence,
 			overdue,
