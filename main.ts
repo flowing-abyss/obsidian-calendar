@@ -556,8 +556,10 @@ export async function renderCalendar(dv: any, params: any) {
 				const week = wBtn.getAttribute("data-week");
 				const year = wBtn.getAttribute("data-year");
 				selectedDate = window
-					.moment(window.moment(year).add(week, "weeks"))
-					.startOf("week");
+					.moment()
+					.isoWeekYear(year)
+					.isoWeek(week)
+					.startOf("isoWeek");
 				const grid = rootNode.querySelector(
 					`#tasksCalendar${tid} .grid`
 				);
