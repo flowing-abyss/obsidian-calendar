@@ -1,7 +1,7 @@
 {
 	"id": "task-calendar",
-	"name": "Tasks Calendar",
-	"version": "1.0.0",
+	"name": "Task Calendar",
+	"version": "1.1.0",
 	"minAppVersion": "0.15.0",
 	"description": "A flexible tasks calendar",
 	"author": "flowing-abyss",
