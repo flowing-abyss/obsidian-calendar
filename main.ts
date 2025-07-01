@@ -1,14 +1,96 @@
-import { App, Modal, Notice, Plugin, TFile } from "obsidian";
+import {
+	App,
+	Modal,
+	Notice,
+	Plugin,
+	PluginSettingTab,
+	Setting,
+	TFile,
+} from "obsidian";
+
+interface CalendarPluginSettings {
+	addToToday: boolean;
+	customFilePath: string;
+	taskPrefix: string;
+}
+
+const DEFAULT_SETTINGS: CalendarPluginSettings = {
+	addToToday: true,
+	customFilePath: "",
+	taskPrefix: "#task/one-off",
+};
 
 export default class CalendarPlugin extends Plugin {
+	settings: CalendarPluginSettings;
 	async onload() {
-		// Export the function globally for calling from dataviewjs
+		this.settings = Object.assign(
+			{},
+			DEFAULT_SETTINGS,
+			await this.loadData()
+		);
+		this.addSettingTab(new CalendarSettingTab(this.app, this));
 		(window as any).renderCalendar = renderCalendar;
+		(window as any).calendarPluginSettings = this.settings;
 	}
-
+	async saveSettings() {
+		await this.saveData(this.settings);
+	}
 	onunload() {
-		// Remove the global function when the plugin is unloaded
 		delete (window as any).renderCalendar;
+	}
+}
+
+class CalendarSettingTab extends PluginSettingTab {
+	plugin: CalendarPlugin;
+	constructor(app: App, plugin: CalendarPlugin) {
+		super(app, plugin);
+		this.plugin = plugin;
+	}
+	display(): void {
+		const { containerEl } = this;
+		containerEl.empty();
+		new Setting(containerEl)
+			.setName("Add to today's note")
+			.setDesc(
+				"If enabled, tasks will be added to today's periodic note."
+			)
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.addToToday)
+					.onChange(async (value) => {
+						this.plugin.settings.addToToday = value;
+						await this.plugin.saveSettings();
+						this.display();
+					})
+			);
+		if (!this.plugin.settings.addToToday) {
+			new Setting(containerEl)
+				.setName("Custom file path")
+				.setDesc(
+					"If set, tasks will be added to this file instead of the daily note."
+				)
+				.addText((text) =>
+					text
+						.setPlaceholder("periodic/daily/2024-06-10.md")
+						.setValue(this.plugin.settings.customFilePath)
+						.onChange(async (value) => {
+							this.plugin.settings.customFilePath = value;
+							await this.plugin.saveSettings();
+						})
+				);
+		}
+		new Setting(containerEl)
+			.setName("Task prefix")
+			.setDesc("Prefix to add before the task text (e.g. #task/one-off).")
+			.addText((text) =>
+				text
+					.setPlaceholder("#task/one-off")
+					.setValue(this.plugin.settings.taskPrefix)
+					.onChange(async (value) => {
+						this.plugin.settings.taskPrefix = value;
+						await this.plugin.saveSettings();
+					})
+			);
 	}
 }
 
@@ -1538,44 +1620,61 @@ class TaskInputModal extends Modal {
 }
 
 function addTaskToDate(dv: any, clickedDate: string) {
+	const settings = (window as any).calendarPluginSettings || DEFAULT_SETTINGS;
 	const today = window.moment().format("YYYY-MM-DD");
 	new TaskInputModal(dv.app, async (taskText: string) => {
 		if (!taskText || !taskText.trim()) return;
-		const periodicNotes = dv.app.plugins.plugins["periodic-notes"];
-		const settings = periodicNotes?.settings;
-		const folder = settings?.daily?.folder || "periodic/daily";
-		const format = settings?.daily?.format || "YYYY-MM-DD";
-		const fileName = dv.app.internalPlugins.plugins["periodic-notes"]
-			?.instance?.options?.daily?.format
-			? window
-					.moment(today)
-					.format(
-						dv.app.internalPlugins.plugins["periaodic-notes"]
-							.instance.options.daily.format
-					)
-			: window.moment(today).format(format);
-		const filePath = `${folder}/${fileName}.md`;
-		let file: TFile | null = dv.app.vault.getAbstractFileByPath(
-			filePath
-		) as TFile;
-		if (!file) {
-			await dv.app.commands.executeCommandById(
-				"periodic-notes:open-daily-note"
-			);
-			await new Promise((resolve) => setTimeout(resolve, 2500));
-			let tryCount = 0;
-			while (!file && tryCount < 10) {
-				await new Promise((resolve) => setTimeout(resolve, 200));
-				file = dv.app.vault.getAbstractFileByPath(filePath) as TFile;
-				tryCount++;
-			}
+		const prefix = settings.taskPrefix ? settings.taskPrefix.trim() : "";
+		const taskLine = `- [ ] ${prefix} ${taskText} 📅 ${clickedDate}`;
+		let file: TFile | null = null;
+		let filePath = "";
+		if (settings.addToToday) {
+			const periodicNotes = dv.app.plugins.plugins["periodic-notes"];
+			const pnSettings = periodicNotes?.settings;
+			const folder = pnSettings?.daily?.folder || "periodic/daily";
+			const format = pnSettings?.daily?.format || "YYYY-MM-DD";
+			const fileName = dv.app.internalPlugins.plugins["periodic-notes"]
+				?.instance?.options?.daily?.format
+				? window
+						.moment(today)
+						.format(
+							dv.app.internalPlugins.plugins["periodic-notes"]
+								.instance.options.daily.format
+						)
+				: window.moment(today).format(format);
+			filePath = `${folder}/${fileName}.md`;
+			file = dv.app.vault.getAbstractFileByPath(filePath) as TFile;
 			if (!file) {
-				new Notice("Could not find or create the daily note.");
-				return;
+				await dv.app.commands.executeCommandById(
+					"periodic-notes:open-daily-note"
+				);
+				await new Promise((resolve) => setTimeout(resolve, 1500));
+				let tryCount = 0;
+				while (!file && tryCount < 10) {
+					await new Promise((resolve) => setTimeout(resolve, 200));
+					file = dv.app.vault.getAbstractFileByPath(
+						filePath
+					) as TFile;
+					tryCount++;
+				}
+				if (!file) {
+					new Notice("Could not find or create the daily note.");
+					return;
+				}
+			}
+		} else if (settings.customFilePath) {
+			filePath = settings.customFilePath;
+			file = dv.app.vault.getAbstractFileByPath(filePath) as TFile;
+			if (!file) {
+				await dv.app.vault.create(filePath, "");
+				file = dv.app.vault.getAbstractFileByPath(filePath) as TFile;
 			}
 		}
+		if (!file) {
+			new Notice("No file selected for task addition.");
+			return;
+		}
 		const content = await dv.app.vault.read(file);
-		const taskLine = `- [ ] #task/one-off ${taskText} 📅 ${clickedDate}`;
 		await dv.app.vault.modify(file, content + "\n" + taskLine);
 		new Notice("Task added to " + file.name);
 	}).open();
