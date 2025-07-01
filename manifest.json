@@ -1,11 +1,11 @@
 {
 	"id": "task-calendar",
 	"name": "Task Calendar",
-	"version": "1.1.0",
+	"version": "1.2.0",
 	"minAppVersion": "0.15.0",
-	"description": "A flexible tasks calendar",
+	"description": "Flexible Task Calendar",
 	"author": "flowing-abyss",
-	"authorUrl": "https://github.com/flowing-abyss/obsidian-calendar",
+	"authorUrl": "https://github.com/flowing-abyss",
 	"fundingUrl": "https://www.donationalerts.com/r/flowing_abyss",
 	"isDesktopOnly": false
 }
