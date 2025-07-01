@@ -1,4 +1,4 @@
-import { Plugin } from "obsidian";
+import { App, Modal, Notice, Plugin, TFile } from "obsidian";
 
 export default class CalendarPlugin extends Plugin {
 	async onload() {
@@ -1132,6 +1132,27 @@ export async function renderCalendar(dv: any, params: any) {
 				window.moment(t.due).isBefore(today)
 		);
 		overdueCounter = overdueTasks.length;
+
+		setTimeout(() => {
+			rootNode
+				.querySelectorAll(
+					".cell.currentMonth, .cell.currentMonth.today"
+				)
+				.forEach((cell: HTMLElement) => {
+					cell.addEventListener("click", (e) => {
+						const target = e.target as HTMLElement;
+						if (target.closest(".task")) return;
+						if (target.closest(".cellName")) return;
+						const date =
+							cell
+								.querySelector("a.cellName")
+								?.getAttribute("href")
+								?.split("/")
+								.pop() || "";
+						if (date) addTaskToDate(dv, date);
+					});
+				});
+		}, 0);
 	}
 
 	function getWeek(tasks: any[], week: any) {
@@ -1242,6 +1263,25 @@ export async function renderCalendar(dv: any, params: any) {
 					});
 			}, 0);
 		}
+
+		setTimeout(() => {
+			rootNode
+				.querySelectorAll(".cell.currentWeek")
+				.forEach((cell: HTMLElement) => {
+					cell.addEventListener("click", (e) => {
+						const target = e.target as HTMLElement;
+						if (target.closest(".task")) return;
+						if (target.closest(".cellName")) return;
+						const date =
+							cell
+								.querySelector("a.cellName")
+								?.getAttribute("href")
+								?.split("/")
+								.pop() || "";
+						if (date) addTaskToDate(dv, date);
+					});
+				});
+		}, 0);
 	}
 
 	function getList(tasks: any[], month: any) {
@@ -1335,6 +1375,17 @@ export async function renderCalendar(dv: any, params: any) {
 					});
 			}, 0);
 		}
+
+		setTimeout(() => {
+			rootNode
+				.querySelectorAll(".listDate")
+				.forEach((dateEl: HTMLElement) => {
+					dateEl.addEventListener("click", () => {
+						const date = dateEl.textContent?.trim() || "";
+						if (date) addTaskToDate(dv, date);
+					});
+				});
+		}, 0);
 	}
 
 	// --- Start rendering by view ---
@@ -1415,4 +1466,117 @@ function transColor(color: string, percent: number): string {
 			.toString(16)
 			.slice(1)
 	);
+}
+
+class TaskInputModal extends Modal {
+	taskText: string = "";
+	onSubmit: (result: string) => void;
+	constructor(app: App, onSubmit: (result: string) => void) {
+		super(app);
+		this.onSubmit = onSubmit;
+	}
+	onOpen() {
+		const { contentEl } = this;
+		contentEl.empty();
+		contentEl.style.display = "block";
+		contentEl.style.padding = "16px 20px 12px 20px";
+
+		const form = contentEl.createEl("div");
+		form.style.display = "flex";
+		form.style.flexDirection = "row";
+		form.style.alignItems = "center";
+		form.style.gap = "10px";
+		form.style.width = "100%";
+		form.style.maxWidth = "420px";
+		form.style.margin = "0 auto";
+
+		const input = form.createEl("input", {
+			type: "text",
+			placeholder: "Task description",
+		});
+		input.style.padding = "8px 12px";
+		input.style.fontSize = "1.05em";
+		input.style.border = "1px solid var(--interactive-accent)";
+		input.style.borderRadius = "6px";
+		input.style.background = "var(--background-secondary)";
+		input.style.color = "var(--text-normal)";
+		input.style.outline = "none";
+		input.style.flex = "1 1 auto";
+		input.style.minWidth = "0";
+		input.addEventListener("keydown", (e) => {
+			if (e.key === "Enter") {
+				this.taskText = input.value;
+				this.close();
+				this.onSubmit(this.taskText);
+			}
+		});
+		input.focus();
+
+		const button = form.createEl("button", { text: "Add" });
+		button.style.padding = "8px 16px";
+		button.style.fontSize = "1.05em";
+		button.style.border = "none";
+		button.style.borderRadius = "6px";
+		button.style.background = "var(--interactive-accent)";
+		button.style.color = "var(--text-on-accent)";
+		button.style.cursor = "pointer";
+		button.style.transition = "background 0.2s";
+		button.style.flex = "0 0 auto";
+		button.onmouseenter = () =>
+			(button.style.background = "var(--interactive-accent-hover)");
+		button.onmouseleave = () =>
+			(button.style.background = "var(--interactive-accent)");
+		button.onclick = () => {
+			this.taskText = input.value;
+			this.close();
+			this.onSubmit(this.taskText);
+		};
+	}
+	onClose() {
+		this.contentEl.empty();
+	}
+}
+
+function addTaskToDate(dv: any, clickedDate: string) {
+	const today = window.moment().format("YYYY-MM-DD");
+	new TaskInputModal(dv.app, async (taskText: string) => {
+		if (!taskText || !taskText.trim()) return;
+		const periodicNotes = dv.app.plugins.plugins["periodic-notes"];
+		const settings = periodicNotes?.settings;
+		const folder = settings?.daily?.folder || "periodic/daily";
+		const format = settings?.daily?.format || "YYYY-MM-DD";
+		const fileName = dv.app.internalPlugins.plugins["periodic-notes"]
+			?.instance?.options?.daily?.format
+			? window
+					.moment(today)
+					.format(
+						dv.app.internalPlugins.plugins["periaodic-notes"]
+							.instance.options.daily.format
+					)
+			: window.moment(today).format(format);
+		const filePath = `${folder}/${fileName}.md`;
+		let file: TFile | null = dv.app.vault.getAbstractFileByPath(
+			filePath
+		) as TFile;
+		if (!file) {
+			await dv.app.commands.executeCommandById(
+				"periodic-notes:open-daily-note"
+			);
+			await new Promise((resolve) => setTimeout(resolve, 2500));
+			let tryCount = 0;
+			while (!file && tryCount < 10) {
+				await new Promise((resolve) => setTimeout(resolve, 200));
+				file = dv.app.vault.getAbstractFileByPath(filePath) as TFile;
+				tryCount++;
+			}
+			if (!file) {
+				new Notice("Could not find or create the daily note.");
+				return;
+			}
+		}
+		const content = await dv.app.vault.read(file);
+		const taskLine = `- [ ] #task/one-off ${taskText} 📅 ${clickedDate}`;
+		await dv.app.vault.modify(file, content + "\n" + taskLine);
+		new Notice("Task added to " + file.name);
+	}).open();
 }
